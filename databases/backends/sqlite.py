@@ -86,7 +86,7 @@ class SQLiteConnection(ConnectionBackend):
         await self._pool.release(self._connection)
         self._connection = None
 
-    async def fetch_all(self, query: ClauseElement) -> typing.List[typing.Mapping]:
+    async def fetch_all(self, query: ClauseElement) -> typing.List[typing.Sequence]:
         assert self._connection is not None, "Connection is not acquired"
         query_str, args, context = self._compile(query)
 
@@ -104,7 +104,7 @@ class SQLiteConnection(ConnectionBackend):
                 for row in rows
             ]
 
-    async def fetch_one(self, query: ClauseElement) -> typing.Optional[typing.Mapping]:
+    async def fetch_one(self, query: ClauseElement) -> typing.Optional[typing.Sequence]:
         assert self._connection is not None, "Connection is not acquired"
         query_str, args, context = self._compile(query)
 
@@ -167,7 +167,9 @@ class SQLiteConnection(ConnectionBackend):
         args = []
 
         if not isinstance(query, DDLElement):
-            for key, raw_val in compiled.construct_params().items():
+            params = compiled.construct_params()
+            for key in compiled.positiontup:
+                raw_val = params[key]
                 if key in compiled._bind_processors:
                     val = compiled._bind_processors[key](raw_val)
                 else:
