@@ -1,6 +1,5 @@
 import logging
 import typing
-from collections.abc import Sequence
 
 import asyncpg
 from sqlalchemy.dialects.postgresql import pypostgresql
@@ -11,7 +10,12 @@ from sqlalchemy.sql.schema import Column
 from sqlalchemy.types import TypeEngine
 
 from databases.core import LOG_EXTRA, DatabaseURL
-from databases.interfaces import ConnectionBackend, DatabaseBackend, TransactionBackend
+from databases.interfaces import (
+    ConnectionBackend,
+    DatabaseBackend,
+    Record as RecordInterface,
+    TransactionBackend,
+)
 
 logger = logging.getLogger("databases")
 
@@ -78,7 +82,7 @@ class PostgresBackend(DatabaseBackend):
         return PostgresConnection(self, self._dialect)
 
 
-class Record(Sequence):
+class Record(RecordInterface):
     __slots__ = (
         "_row",
         "_result_columns",
@@ -105,7 +109,7 @@ class Record(Sequence):
         self._column_map, self._column_map_int, self._column_map_full = column_maps
 
     @property
-    def _mapping(self) -> asyncpg.Record:
+    def _mapping(self) -> typing.Mapping:
         return self._row
 
     def keys(self) -> typing.KeysView:
@@ -171,7 +175,7 @@ class PostgresConnection(ConnectionBackend):
         self._connection = await self._database._pool.release(self._connection)
         self._connection = None
 
-    async def fetch_all(self, query: ClauseElement) -> typing.List[typing.Sequence]:
+    async def fetch_all(self, query: ClauseElement) -> typing.List[RecordInterface]:
         assert self._connection is not None, "Connection is not acquired"
         query_str, args, result_columns = self._compile(query)
         rows = await self._connection.fetch(query_str, *args)
@@ -179,7 +183,7 @@ class PostgresConnection(ConnectionBackend):
         column_maps = self._create_column_maps(result_columns)
         return [Record(row, result_columns, dialect, column_maps) for row in rows]
 
-    async def fetch_one(self, query: ClauseElement) -> typing.Optional[typing.Sequence]:
+    async def fetch_one(self, query: ClauseElement) -> typing.Optional[RecordInterface]:
         assert self._connection is not None, "Connection is not acquired"
         query_str, args, result_columns = self._compile(query)
         row = await self._connection.fetchrow(query_str, *args)
